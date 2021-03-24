@@ -1,0 +1,16 @@
+[package]
+name = "glstsp"
+version = "0.1.0"
+authors = ["Caio Souza <caiophilipevs@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rand="0.8.3"
+rand_mt = "4.0.1"
+
+[dev-dependencies]
+criterion = "0.3.4"
+
+[[bench]]
+name = "graph"
+harness = false
