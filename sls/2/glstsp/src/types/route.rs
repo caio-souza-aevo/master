@@ -6,13 +6,36 @@ pub struct Route {
     pub cost: i32,
 }
 
+#[derive(Eq, PartialEq, Debug)]
+pub enum HamiltonianResult {
+    Ok,
+    VisitedTwice(usize),
+}
+
 impl Route
 {
     pub fn len(&self) -> usize {
         self.path.len()
     }
 
+    /// Check if the route is complete and Hamiltonian
+    pub fn is_hamiltonian(&self) -> HamiltonianResult {
+        let mut visited = vec![false; self.path.len()];
+
+        for vertex in self.path.iter().copied() {
+            if visited[vertex] {
+                return HamiltonianResult::VisitedTwice(vertex);
+            }
+            visited[vertex] = true;
+        }
+        
+        HamiltonianResult::Ok
+    }
+
+    /// Twist the route from `i` to `j` both inclusive and apply the `cost_change` of the twist.
     pub fn twist(&mut self, i: usize, j: usize, cost_change: i32) {
+        self.cost += cost_change;
+
         let mut i = i;
         let mut j = j;
 
@@ -23,19 +46,21 @@ impl Route
                 j -= 1;
             }
         } else {
-            let middle = i + (self.len() - (i - j + 1)) / 2;
-            let middle = middle % self.len();
+            let len = self.len();
+
+            let middle = i + (len - (i - j + 1)) / 2;
+            let middle = middle % len;
 
             loop {
                 self.path.swap(i, j);
                 if i == middle { break; }
 
-                i = (i + 1) % self.len();
-                j = (j + self.len() - 1) % self.len();
+                i = (i + 1) % len;
+                j = (j + len - 1) % len;
             }
         }
 
-        self.cost += cost_change;
+        debug_assert_eq!(self.is_hamiltonian(), HamiltonianResult::Ok);
     }
 }
 
@@ -56,6 +81,47 @@ mod tests {
         Route {
             path: vec![0, 1, 2, 3, 4, 5, 6, 7],
             cost: 5,
+        }
+    }
+
+    #[cfg(test)]
+    mod hamiltonian {
+        use crate::types::route::{Route, HamiltonianResult};
+
+        #[test]
+        fn all() {
+            let route = Route {
+                path: vec![0, 1, 2, 3, 4, 5, 6, 7],
+                cost: 5,
+            };
+            assert_eq!(route.is_hamiltonian(), HamiltonianResult::Ok);
+        }
+
+        #[test]
+        fn first_is_repeated() {
+            let route = Route {
+                path: vec![1, 1, 2, 3, 4, 5, 6, 7],
+                cost: 5,
+            };
+            assert_eq!(route.is_hamiltonian(), HamiltonianResult::VisitedTwice(1));
+        }
+
+        #[test]
+        fn second_is_repeated() {
+            let route = Route {
+                path: vec![0, 1, 2, 3, 4, 2, 6, 7],
+                cost: 5,
+            };
+            assert_eq!(route.is_hamiltonian(), HamiltonianResult::VisitedTwice(2));
+        }
+
+        #[test]
+        fn internal_cycle() {
+            let route = Route {
+                path: vec![0, 1, 2, 3, 4, 5, 6, 0],
+                cost: 5,
+            };
+            assert_eq!(route.is_hamiltonian(), HamiltonianResult::VisitedTwice(0));
         }
     }
 

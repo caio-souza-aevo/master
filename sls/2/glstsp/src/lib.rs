@@ -26,7 +26,7 @@ pub fn main() {
 }
 
 #[cfg(test)]
-mod tests_point {
+mod main {
     use crate::main;
 
     #[test]

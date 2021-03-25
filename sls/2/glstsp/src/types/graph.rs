@@ -57,23 +57,21 @@ impl Graph {
     pub fn local_search(&self, candidate: &mut Route, neighborhood: &[usize]) -> i32 {
         debug_assert_eq!(candidate.len(), neighborhood.len());
 
-        let res = candidate;
-
         for i in 0..neighborhood.len() {
             for j in i + 1..neighborhood.len() {
                 // Find vertexes on the route
                 let i = neighborhood[i];
-                let i_next = (i + 1) % res.len();
+                let i_next = (i + 1) % candidate.len();
 
                 let j = neighborhood[j];
-                let j_next = (j + 1) % res.len();
+                let j_next = (j + 1) % candidate.len();
 
                 // Find vertexes to twist
-                let i_vertex = res[i];
-                let i_vertex_next = res[i_next];
+                let i_vertex = candidate[i];
+                let i_vertex_next = candidate[i_next];
 
-                let j_vertex = res[j];
-                let j_vertex_next = res[j_next];
+                let j_vertex = candidate[j];
+                let j_vertex_next = candidate[j_next];
 
                 // Calculate new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
                 let cost_change =
@@ -82,7 +80,7 @@ impl Graph {
 
                 // If the cost is decreased, apply the twist
                 if cost_change < 0 {
-                    res.twist(i_next, j, cost_change);
+                    candidate.twist(i_next, j, cost_change);
                     return cost_change;
                 }
             }
