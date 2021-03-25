@@ -1,11 +1,9 @@
 use std::ops::{Index, IndexMut};
 use crate::types::point::Point;
-
-#[derive(Eq, PartialEq, Debug)]
-pub struct Route {
-    pub path: Vec<usize>,
-    pub cost: i32,
-}
+use crate::types::route::Route;
+use rand_mt::Mt64;
+use rand::SeedableRng;
+use rand::seq::SliceRandom;
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct Graph {
@@ -37,7 +35,9 @@ impl Graph {
     #[inline]
     fn get_index(&self, index: (usize, usize)) -> usize {
         let (x, y) = index;
-        x * self.size + y
+        let res = x * self.size + y;
+        debug_assert!(res < self.data.len());
+        res
     }
 
     fn sum_edges(&self, edges: &[usize]) -> i32 {
@@ -54,10 +54,61 @@ impl Graph {
         dist
     }
 
-    pub fn gls(&self, _seed: u64) -> Route {
+    pub fn local_search(&self, candidate: &mut Route, neighborhood: &[usize]) -> i32 {
+        debug_assert_eq!(candidate.len(), neighborhood.len());
+
+        let res = candidate;
+
+        for i in 0..neighborhood.len() {
+            for j in i + 1..neighborhood.len() {
+                // Find vertexes on the route
+                let i = neighborhood[i];
+                let i_next = (i + 1) % res.len();
+
+                let j = neighborhood[j];
+                let j_next = (j + 1) % res.len();
+
+                // Find vertexes to twist
+                let i_vertex = res[i];
+                let i_vertex_next = res[i_next];
+
+                let j_vertex = res[j];
+                let j_vertex_next = res[j_next];
+
+                // Calculate new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
+                let cost_change =
+                    self[(i_vertex, j_vertex)] + self[(i_vertex_next, j_vertex_next)]
+                        - self[(i_vertex, i_vertex_next)] - self[(j_vertex, j_vertex_next)];
+
+                // If the cost is decreased, apply the twist
+                if cost_change < 0 {
+                    res.twist(i_next, j, cost_change);
+                    return cost_change;
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    pub fn gls(&self, seed: u64) -> Route {
+        // RNG
+        let mut rng: Mt64 = SeedableRng::seed_from_u64(seed);
+
+        // Initial candidate
         let path: Vec<_> = (0..self.size).collect();
         let cost = self.sum_edges(&path);
-        Route { path, cost }
+        let mut candidate = Route { path, cost };
+
+        // Neighborhood search
+        let mut neighborhood: Vec<_> = (0..self.size).collect();
+        neighborhood.shuffle(&mut rng);
+        let neighborhood = neighborhood;
+
+        loop {
+            let change = self.local_search(&mut candidate, &neighborhood);
+            if change == 0 { return candidate; };
+        }
     }
 }
 
@@ -66,24 +117,14 @@ impl Index<(usize, usize)> for Graph {
 
     fn index(&self, index: (usize, usize)) -> &Self::Output {
         let index = self.get_index(index);
-
-        #[cfg(debug_assertions)]
-            { self.data.get(index).unwrap() }
-
-        #[cfg(not(debug_assertions))]
-            unsafe { self.data.get_unchecked(index) }
+        unsafe { self.data.get_unchecked(index) }
     }
 }
 
 impl IndexMut<(usize, usize)> for Graph {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
         let index = self.get_index(index);
-
-        #[cfg(debug_assertions)]
-            { self.data.get_mut(index).unwrap() }
-
-        #[cfg(not(debug_assertions))]
-            unsafe { self.data.get_unchecked_mut(index) }
+        unsafe { self.data.get_unchecked_mut(index) }
     }
 }
 

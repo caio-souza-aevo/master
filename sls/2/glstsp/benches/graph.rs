@@ -1,17 +1,13 @@
 use criterion::{criterion_group, criterion_main, Criterion, black_box};
 use glstsp::types::graph::Graph;
-use glstsp::types::point::Point;
+use glstsp::load_data;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let tsp = include_str!("../data/pcb3038.preprocessed.tsp");
-    let tsp: Vec<_> = tsp
-        .lines()
-        .map(Point::from)
-        .collect();
+    let tsp = load_data();
+    let graph = Graph::new(&tsp);
 
-    c.bench_function("Graph new PCB3038", |b| b.iter(|| {
-        let graph = Graph::new(&tsp);
-        black_box(graph[(1, 2)]);
+    c.bench_function("Local Search PCB3038", |b| b.iter(|| {
+        graph.gls(black_box(666))
     }));
 }
 

@@ -3,27 +3,34 @@ use crate::types::point::Point;
 
 pub mod types;
 
-pub fn load_problem() -> Graph {
+pub fn load_data() -> Vec<Point> {
     let tsp = include_str!("../data/pcb3038.preprocessed.tsp");
-    let tsp:Vec<_> = tsp
+    tsp
         .lines()
         .map(Point::from)
-        .collect();
+        .collect::<Vec<_>>()
+}
 
+pub fn load_problem() -> Graph {
+    let tsp = load_data();
     Graph::new(&tsp)
+}
+
+pub fn main() {
+    let tsp = load_problem();
+    let solution = tsp.gls(666);
+
+    // Optimal solution
+    assert!(solution.cost >= 137694);
+    println!("{:?}", solution);
 }
 
 #[cfg(test)]
 mod tests_point {
-    use crate::load_problem;
+    use crate::main;
 
     #[test]
-    fn sanity() {
-        let tsp = load_problem();
-        for seed in 0u64..100
-        {
-            // Optimal solution
-            assert!(tsp.gls(seed).cost >= 137694);
-        }
+    fn explore() {
+        main();
     }
 }
