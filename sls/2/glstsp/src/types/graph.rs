@@ -58,12 +58,10 @@ impl Graph {
         debug_assert_eq!(candidate.len(), neighborhood.len());
 
         for i in 0..neighborhood.len() {
-            for j in i + 1..neighborhood.len() {
+            for j in neighborhood.iter().skip(i + 2).copied() {
                 // Find vertexes on the route
                 let i = neighborhood[i];
                 let i_next = (i + 1) % candidate.len();
-
-                let j = neighborhood[j];
                 let j_next = (j + 1) % candidate.len();
 
                 // Find vertexes to twist
