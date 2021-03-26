@@ -16,21 +16,37 @@ pub fn load_problem() -> Graph {
     Graph::new(&tsp)
 }
 
-pub fn main() {
-    let tsp = load_problem();
-    let solution = tsp.gls(666);
-
-    // Optimal solution
-    assert!(solution.cost >= 137694);
-    println!("{:?}", solution);
-}
-
 #[cfg(test)]
 mod main {
-    use crate::main;
+    use crate::load_problem;
 
     #[test]
-    fn explore() {
-        main();
+    fn sequential() {
+        let tsp = load_problem();
+        let solution = tsp.sequential_route();
+
+        // Optimal solution
+        assert!(solution.cost >= 137694);
+        println!("{:?}", solution);
+    }
+
+    #[test]
+    fn nn() {
+        let tsp = load_problem();
+        let solution = tsp.nearest_neighbor();
+
+        // Optimal solution
+        assert!(solution.cost >= 137694);
+        println!("{:?}", solution);
+    }
+
+    #[test]
+    fn gls() {
+        let tsp = load_problem();
+        let solution = tsp.gls(666);
+
+        // Optimal solution
+        assert!(solution.cost >= 137694);
+        println!("{:?}", solution);
     }
 }

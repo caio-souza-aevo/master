@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 use crate::types::point::Point;
-use crate::types::route::Route;
+use crate::types::route::{Route, HamiltonianResult};
 use rand_mt::Mt64;
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
@@ -54,7 +54,42 @@ impl Graph {
         dist
     }
 
-    pub fn local_search(&self, candidate: &mut Route, neighborhood: &[usize]) -> i32 {
+    pub fn sequential_route(&self) -> Route {
+        let path: Vec<_> = (0..self.size).collect();
+        let cost = self.sum_edges(&path);
+        Route { path, cost }
+    }
+
+    pub fn nearest_neighbor(&self) -> Route {
+        let mut res = vec![0usize; self.size];
+        let mut remainders: Vec<_> = (1..self.size).collect();
+
+        for i in 0..self.size - 1 {
+            let (remainder, neighbor) = remainders
+                .iter()
+                .copied()
+                .enumerate()
+                .min_by(|&(_, n_a), &(_, n_b)|
+                    self[(i, n_a)].cmp(&self[(i, n_b)])
+                )
+                .unwrap();
+
+            remainders.remove(remainder);
+            res[i + 1] = neighbor;
+        }
+
+        let cost = self.sum_edges(&res);
+        let res = Route {
+            path: res,
+            cost,
+        };
+
+        debug_assert_eq!(res.is_hamiltonian(), HamiltonianResult::Ok);
+
+        res
+    }
+
+    fn local_search_step(&self, candidate: &mut Route, neighborhood: &[usize]) -> i32 {
         debug_assert_eq!(candidate.len(), neighborhood.len());
 
         for i in 0..neighborhood.len() {
@@ -87,24 +122,25 @@ impl Graph {
         return 0;
     }
 
+    pub fn local_search(&self, candidate: &mut Route, neighborhood: &[usize]) {
+        loop {
+            let change = self.local_search_step(candidate, &neighborhood);
+            if change == 0 { break; };
+        }
+    }
+
     pub fn gls(&self, seed: u64) -> Route {
         // RNG
         let mut rng: Mt64 = SeedableRng::seed_from_u64(seed);
-
-        // Initial candidate
-        let path: Vec<_> = (0..self.size).collect();
-        let cost = self.sum_edges(&path);
-        let mut candidate = Route { path, cost };
 
         // Neighborhood search
         let mut neighborhood: Vec<_> = (0..self.size).collect();
         neighborhood.shuffle(&mut rng);
         let neighborhood = neighborhood;
 
-        loop {
-            let change = self.local_search(&mut candidate, &neighborhood);
-            if change == 0 { return candidate; };
-        }
+        let mut route = self.sequential_route();
+        self.local_search(&mut route, &neighborhood);
+        route
     }
 }
 
