@@ -1,4 +1,4 @@
-use crate::types::graph::Graph;
+use crate::types::gls::GuidedLocalSearch;
 use crate::types::point::Point;
 
 pub mod types;
@@ -11,9 +11,9 @@ pub fn load_data() -> Vec<Point> {
         .collect::<Vec<_>>()
 }
 
-pub fn load_problem() -> Graph {
+pub fn load_problem() -> GuidedLocalSearch {
     let tsp = load_data();
-    Graph::new(&tsp)
+    GuidedLocalSearch::new(&tsp)
 }
 
 #[cfg(test)]
@@ -49,7 +49,7 @@ mod main {
     #[test]
     fn gls() {
         let tsp = load_problem();
-        let solution = tsp.gls(666);
+        let solution = tsp.solve(666);
 
         // Optimal solution
         assert!(solution.cost >= 137694);

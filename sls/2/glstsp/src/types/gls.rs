@@ -8,20 +8,26 @@ use std::fmt::{Formatter, Display};
 use std::fmt;
 
 #[derive(Eq, PartialEq)]
-pub struct Graph {
+pub struct GuidedLocalSearch {
     size: usize,
     data: Vec<i32>,
 }
 
-impl Graph {
+impl GuidedLocalSearch {
+    fn from_data(size: usize, data: Vec<i32>) -> GuidedLocalSearch {
+        Self { size, data }
+    }
+
+    fn from_size(size: usize) -> GuidedLocalSearch {
+        let data = vec![0i32; size * size];
+        Self::from_data(size, data)
+    }
+
     pub fn new(points: &[Point]) -> Self {
         let size = points.len();
         assert!(size > 0);
 
-        let mut res = Self {
-            size,
-            data: vec![0i32; size * size],
-        };
+        let mut res = Self::from_size(size);
 
         for (i, point) in points.iter().copied().enumerate() {
             for (j, neighbor) in points.iter().copied().enumerate().skip(i + 1) {
@@ -39,8 +45,7 @@ impl Graph {
         let (x, y) = index;
         debug_assert!(x < self.size);
         debug_assert!(y < self.size);
-        let res = x * self.size + y;
-        res
+        x * self.size + y
     }
 
     fn sum_edges(&self, edges: &[usize]) -> i32 {
@@ -122,7 +127,7 @@ impl Graph {
             }
         }
 
-        return 0;
+        0
     }
 
     pub fn local_search(&self, candidate: &mut Route, neighborhood: &[usize]) {
@@ -132,7 +137,7 @@ impl Graph {
         }
     }
 
-    pub fn gls(&self, seed: u64) -> Route {
+    pub fn solve(&self, seed: u64) -> Route {
         // RNG
         let mut rng: Mt64 = SeedableRng::seed_from_u64(seed);
 
@@ -147,7 +152,7 @@ impl Graph {
     }
 }
 
-impl Index<(usize, usize)> for Graph {
+impl Index<(usize, usize)> for GuidedLocalSearch {
     type Output = i32;
 
     fn index(&self, index: (usize, usize)) -> &Self::Output {
@@ -156,18 +161,18 @@ impl Index<(usize, usize)> for Graph {
     }
 }
 
-impl IndexMut<(usize, usize)> for Graph {
+impl IndexMut<(usize, usize)> for GuidedLocalSearch {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
         let index = self.get_index(index);
         unsafe { self.data.get_unchecked_mut(index) }
     }
 }
 
-impl Display for Graph {
+impl Display for GuidedLocalSearch {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let precision = f.precision().unwrap_or(self.size);
 
-        write!(f, "Graph: {{\n    size: {},\n    data (precision {}):\n", self.size, precision)?;
+        write!(f, "GuidedLocalSearch: {{\n    size: {},\n    data (precision {}):\n", self.size, precision)?;
 
         write!(f, "              ")?;
         for i in 0..precision { write!(f, "{:>3} ", i)?; }
@@ -189,10 +194,10 @@ impl Display for Graph {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::graph::Graph;
+    use crate::types::gls::GuidedLocalSearch;
     use crate::types::point::Point;
 
-    fn create_graph() -> Graph {
+    fn create_graph() -> GuidedLocalSearch {
         let points = vec![
             Point::new(2.83000e+03 as i32, 4.00000e+01 as i32),
             Point::new(2.83000e+03 as i32, 7.70000e+01 as i32),
@@ -205,24 +210,21 @@ mod tests {
             Point::new(2.83000e+03 as i32, 3.47000e+02 as i32),
             Point::new(2.83000e+03 as i32, 3.84000e+02 as i32),
         ];
-        Graph::new(&points)
+        GuidedLocalSearch::new(&points)
     }
 
-    fn simple_graph() -> Graph {
-        Graph {
-            size: 4,
-            data: vec![
-                0, 1, 2, 5,
-                1, 0, 7, 4,
-                2, 7, 0, 1,
-                5, 4, 1, 0,
-            ],
-        }
+    fn simple_graph() -> GuidedLocalSearch {
+        GuidedLocalSearch::from_data(4, vec![
+            0, 1, 2, 5,
+            1, 0, 7, 4,
+            2, 7, 0, 1,
+            5, 4, 1, 0,
+        ])
     }
 
     #[cfg(test)]
     mod create {
-        use crate::types::graph::tests::create_graph;
+        use crate::types::gls::tests::create_graph;
 
         #[test]
         fn test() {
@@ -360,7 +362,7 @@ mod tests {
 
     #[cfg(test)]
     mod sum_edges {
-        use crate::types::graph::tests::simple_graph;
+        use crate::types::gls::tests::simple_graph;
 
         #[test]
         fn seq() {

@@ -14,6 +14,10 @@ pub enum HamiltonianResult {
 
 impl Route
 {
+    pub fn is_empty(&self) -> bool {
+        self.path.is_empty()
+    }
+
     pub fn len(&self) -> usize {
         self.path.len()
     }
@@ -28,7 +32,7 @@ impl Route
             }
             visited[vertex] = true;
         }
-        
+
         HamiltonianResult::Ok
     }
 
