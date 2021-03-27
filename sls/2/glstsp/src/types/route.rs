@@ -81,16 +81,23 @@ impl Route
         debug_assert!(self.is_hamiltonian());
     }
 
-    /// Create an iterator of vertices and the next one.
+    /// Create an iterator of edges grouping each vertex with the next one.
+    ///
+    /// See [`edges`] for more information.
+    pub fn edge_from_vertices(vertices: &'_ [usize]) -> impl Iterator<Item=(usize, usize)> + '_ {
+        vertices.iter().copied()
+            .zip(vertices.iter().copied()
+                .skip(1)
+                .chain(iter::once(vertices[0]))
+            )
+    }
+
+    /// Create an iterator of edges grouping each vertex with the next one.
     ///
     /// `Route(vec![2, 0, 1, 3])` should return an iterator equivalent to
     /// `[(2, 0), (0, 1), (1, 3), (3, 2)]`
     pub fn edges(&'_ self) -> impl Iterator<Item=(usize, usize)> + '_ {
-        self.path.iter().copied()
-            .zip(self.path.iter().copied()
-                .skip(1)
-                .chain(iter::once(self.path[0]))
-            )
+        Self::edge_from_vertices(&self.path)
     }
 }
 

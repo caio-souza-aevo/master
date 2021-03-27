@@ -58,18 +58,12 @@ impl GuidedLocalSearch {
         self.penalty[self.get_index(index)]
     }
 
-    fn sum_edges(&self, edges: &[usize]) -> i32 {
-        assert_eq!(edges.len(), self.size);
+    fn sum_edges(&self, vertices: &[usize]) -> i32 {
+        assert_eq!(vertices.len(), self.size);
 
-        let mut dist = 0;
-
-        let indexes = edges.iter().zip(edges.iter().skip(1));
-        for (&curr, &next) in indexes {
-            dist += self[(curr, next)]
-        }
-
-        dist += self[(edges[edges.len() - 1], edges[0])];
-        dist
+        Route::edge_from_vertices(vertices)
+            .map(|edge| self[edge])
+            .sum()
     }
 
     pub fn sequential_route(&self) -> Route {
