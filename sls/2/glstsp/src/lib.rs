@@ -21,6 +21,12 @@ mod main {
     use crate::load_problem;
 
     #[test]
+    fn write() {
+        let tsp = load_problem();
+        println!("{:.25}", tsp);
+    }
+
+    #[test]
     fn sequential() {
         let tsp = load_problem();
         let solution = tsp.sequential_route();

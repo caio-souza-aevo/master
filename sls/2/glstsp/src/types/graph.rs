@@ -4,8 +4,10 @@ use crate::types::route::{Route, HamiltonianResult};
 use rand_mt::Mt64;
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
+use std::fmt::{Formatter, Display};
+use std::fmt;
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq)]
 pub struct Graph {
     size: usize,
     data: Vec<i32>,
@@ -35,8 +37,9 @@ impl Graph {
     #[inline]
     fn get_index(&self, index: (usize, usize)) -> usize {
         let (x, y) = index;
+        debug_assert!(x < self.size);
+        debug_assert!(y < self.size);
         let res = x * self.size + y;
-        debug_assert!(res < self.data.len());
         res
     }
 
@@ -157,6 +160,30 @@ impl IndexMut<(usize, usize)> for Graph {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
         let index = self.get_index(index);
         unsafe { self.data.get_unchecked_mut(index) }
+    }
+}
+
+impl Display for Graph {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let precision = f.precision().unwrap_or(self.size);
+
+        write!(f, "Graph: {{\n    size: {},\n    data (precision {}):\n", self.size, precision)?;
+
+        write!(f, "              ")?;
+        for i in 0..precision { write!(f, "{:>3} ", i)?; }
+        write!(f, "\n             ")?;
+        for _ in 0..precision { write!(f, "____")?; }
+        writeln!(f)?;
+
+        for i in 0..precision {
+            write!(f, "        {:>3} | ", i)?;
+            for j in 0..precision {
+                write!(f, "{:>3} ", self[(i, j)])?;
+            }
+            writeln!(f)?;
+        }
+
+        write!(f, "}}")
     }
 }
 
