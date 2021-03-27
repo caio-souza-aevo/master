@@ -4,10 +4,10 @@ use glstsp::load_data;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let tsp = load_data();
-    let graph = GuidedLocalSearch::new(&tsp);
+    let gls = GuidedLocalSearch::new(&tsp);
 
     c.bench_function("Local Search PCB3038", |b| b.iter(|| {
-        graph.solve(black_box(666))
+        gls.solve(black_box(666))
     }));
 }
 

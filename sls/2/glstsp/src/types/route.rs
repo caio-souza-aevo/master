@@ -1,9 +1,10 @@
 use std::ops::Index;
+use std::iter;
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct Route {
-    pub path: Vec<usize>,
-    pub cost: i32,
+    path: Vec<usize>,
+    cost: i32,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -14,6 +15,15 @@ pub enum HamiltonianResult {
 
 impl Route
 {
+    pub fn new(path: Vec<usize>, cost: i32) -> Route {
+        debug_assert!(path.len() > 1);
+        Route { path, cost }
+    }
+
+    pub fn cost(&self) -> i32 {
+        self.cost
+    }
+
     pub fn is_empty(&self) -> bool {
         self.path.is_empty()
     }
@@ -23,7 +33,7 @@ impl Route
     }
 
     /// Check if the route is complete and Hamiltonian
-    pub fn is_hamiltonian(&self) -> HamiltonianResult {
+    pub fn check_hamiltonian(&self) -> HamiltonianResult {
         let mut visited = vec![false; self.path.len()];
 
         for vertex in self.path.iter().copied() {
@@ -34,6 +44,10 @@ impl Route
         }
 
         HamiltonianResult::Ok
+    }
+
+    pub fn is_hamiltonian(&self) -> bool {
+        self.check_hamiltonian() == HamiltonianResult::Ok
     }
 
     /// Twist the route from `i` to `j` both inclusive and apply the `cost_change` of the twist.
@@ -64,7 +78,19 @@ impl Route
             }
         }
 
-        debug_assert_eq!(self.is_hamiltonian(), HamiltonianResult::Ok);
+        debug_assert!(self.is_hamiltonian());
+    }
+
+    /// Create an iterator of vertices and the next one.
+    ///
+    /// `Route(vec![2, 0, 1, 3])` should return an iterator equivalent to
+    /// `[(2, 0), (0, 1), (1, 3), (3, 2)]`
+    pub fn edges(&'_ self) -> impl Iterator<Item=(usize, usize)> + '_ {
+        self.path.iter().copied()
+            .zip(self.path.iter().copied()
+                .skip(1)
+                .chain(iter::once(self.path[0]))
+            )
     }
 }
 
@@ -98,7 +124,8 @@ mod tests {
                 path: vec![0, 1, 2, 3, 4, 5, 6, 7],
                 cost: 5,
             };
-            assert_eq!(route.is_hamiltonian(), HamiltonianResult::Ok);
+            assert_eq!(route.check_hamiltonian(), HamiltonianResult::Ok);
+            assert!(route.is_hamiltonian());
         }
 
         #[test]
@@ -107,7 +134,7 @@ mod tests {
                 path: vec![1, 1, 2, 3, 4, 5, 6, 7],
                 cost: 5,
             };
-            assert_eq!(route.is_hamiltonian(), HamiltonianResult::VisitedTwice(1));
+            assert_eq!(route.check_hamiltonian(), HamiltonianResult::VisitedTwice(1));
         }
 
         #[test]
@@ -116,7 +143,7 @@ mod tests {
                 path: vec![0, 1, 2, 3, 4, 2, 6, 7],
                 cost: 5,
             };
-            assert_eq!(route.is_hamiltonian(), HamiltonianResult::VisitedTwice(2));
+            assert_eq!(route.check_hamiltonian(), HamiltonianResult::VisitedTwice(2));
         }
 
         #[test]
@@ -125,7 +152,7 @@ mod tests {
                 path: vec![0, 1, 2, 3, 4, 5, 6, 0],
                 cost: 5,
             };
-            assert_eq!(route.is_hamiltonian(), HamiltonianResult::VisitedTwice(0));
+            assert_eq!(route.check_hamiltonian(), HamiltonianResult::VisitedTwice(0));
         }
     }
 
@@ -320,6 +347,40 @@ mod tests {
                 cost: 13,
             };
             assert_eq!(actual, expected);
+        }
+    }
+
+    #[cfg(test)]
+    mod edges {
+        use crate::types::route::Route;
+
+        #[test]
+        // This is a special case when the route has only two vertices.
+        // Not worth handling because this is never the case in a real world scenario and
+        // would only impact the performance for extreme small instances.
+        fn edges_single() {
+            let route = Route {
+                cost: 0,
+                path: vec![0, 1],
+            };
+
+            let actual = route.edges();
+            let expected = vec![(0, 1), (1, 0)];
+
+            itertools::assert_equal(actual, expected);
+        }
+
+        #[test]
+        fn edges() {
+            let route = Route {
+                cost: 0,
+                path: vec![2, 0, 1, 3],
+            };
+
+            let actual = route.edges();
+            let expected = vec![(2, 0), (0, 1), (1, 3), (3, 2)];
+
+            itertools::assert_equal(actual, expected);
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 use crate::types::point::Point;
-use crate::types::route::{Route, HamiltonianResult};
+use crate::types::route::Route;
 use rand_mt::Mt64;
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
@@ -11,11 +11,16 @@ use std::fmt;
 pub struct GuidedLocalSearch {
     size: usize,
     data: Vec<i32>,
+    penalty: Vec<i32>,
 }
 
 impl GuidedLocalSearch {
     fn from_data(size: usize, data: Vec<i32>) -> GuidedLocalSearch {
-        Self { size, data }
+        Self {
+            size,
+            data,
+            penalty: vec![0i32; size * size],
+        }
     }
 
     fn from_size(size: usize) -> GuidedLocalSearch {
@@ -48,6 +53,11 @@ impl GuidedLocalSearch {
         x * self.size + y
     }
 
+    #[inline]
+    fn penalty(&self, index: (usize, usize)) -> i32 {
+        self.penalty[self.get_index(index)]
+    }
+
     fn sum_edges(&self, edges: &[usize]) -> i32 {
         assert_eq!(edges.len(), self.size);
 
@@ -65,7 +75,7 @@ impl GuidedLocalSearch {
     pub fn sequential_route(&self) -> Route {
         let path: Vec<_> = (0..self.size).collect();
         let cost = self.sum_edges(&path);
-        Route { path, cost }
+        Route::new(path, cost)
     }
 
     pub fn nearest_neighbor(&self) -> Route {
@@ -87,17 +97,20 @@ impl GuidedLocalSearch {
         }
 
         let cost = self.sum_edges(&res);
-        let res = Route {
-            path: res,
-            cost,
-        };
+        let res = Route::new(res, cost);
 
-        debug_assert_eq!(res.is_hamiltonian(), HamiltonianResult::Ok);
+        debug_assert!(res.is_hamiltonian());
 
         res
     }
 
-    fn local_search_step(&self, candidate: &mut Route, neighborhood: &[usize]) -> i32 {
+    fn local_search_step(
+        &self,
+        candidate: &mut Route,
+        neighborhood: &[usize],
+        old_penalty_factor: f64,
+        penalty_factor: f64,
+    ) -> i32 {
         debug_assert_eq!(candidate.len(), neighborhood.len());
 
         for i in 0..neighborhood.len() {
@@ -114,12 +127,33 @@ impl GuidedLocalSearch {
                 let j_vertex = candidate[j];
                 let j_vertex_next = candidate[j_next];
 
-                // Calculate new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
-                let cost_change =
-                    self[(i_vertex, j_vertex)] + self[(i_vertex_next, j_vertex_next)]
-                        - self[(i_vertex, i_vertex_next)] - self[(j_vertex, j_vertex_next)];
+                // Calculate the new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
+                let cost_change_decreased =
+                    self[(i_vertex, i_vertex_next)]
+                        + self[(j_vertex, j_vertex_next)]
+                        + (
+                        old_penalty_factor *
+                            (
+                                self.penalty((i_vertex, i_vertex_next))
+                                    + self.penalty((j_vertex, j_vertex_next))
+                            ) as f64
+                    ) as i32;
 
-                // If the cost is decreased, apply the twist
+
+                let cost_change_increased =
+                    self[(i_vertex, j_vertex)]
+                        + self[(i_vertex_next, j_vertex_next)]
+                        + (
+                        penalty_factor *
+                            (
+                                self.penalty((i_vertex, j_vertex))
+                                    + self.penalty((i_vertex_next, j_vertex_next))
+                            ) as f64
+                    ) as i32;
+
+                let cost_change = cost_change_increased - cost_change_decreased;
+
+                // If the cost is decreased, apply the twist and finish the step
                 if cost_change < 0 {
                     candidate.twist(i_next, j, cost_change);
                     return cost_change;
@@ -130,13 +164,22 @@ impl GuidedLocalSearch {
         0
     }
 
-    pub fn local_search(&self, candidate: &mut Route, neighborhood: &[usize]) {
+    pub fn local_search(
+        &self,
+        candidate: &mut Route,
+        neighborhood: &[usize],
+        old_penalty_factor: f64,
+        penalty_factor: f64)
+    {
         loop {
-            let change = self.local_search_step(candidate, &neighborhood);
-            if change == 0 { break; };
+            let change = self.local_search_step(candidate, &neighborhood, old_penalty_factor, penalty_factor);
+            if change == 0 { break; }
         }
     }
 
+    /// Solve the instance
+    ///
+    /// `seed`: seed used for the RNG.
     pub fn solve(&self, seed: u64) -> Route {
         // RNG
         let mut rng: Mt64 = SeedableRng::seed_from_u64(seed);
@@ -146,8 +189,22 @@ impl GuidedLocalSearch {
         neighborhood.shuffle(&mut rng);
         let neighborhood = neighborhood;
 
-        let mut route = self.sequential_route();
-        self.local_search(&mut route, &neighborhood);
+        let mut route = self.nearest_neighbor();
+
+        self.local_search(&mut route, &neighborhood, 0.0, 0.0);
+        //let penalty_factor = 0.3 * (route.cost as f64) / (route.len() as f64);
+
+        // Find the maximum utility among all features
+        let max_utility = route.edges()
+            .map(|vertex| self[vertex] / (1 + self.penalty(vertex)))
+            .max()
+            .unwrap();
+
+        println!("{}", max_utility);
+
+        /*let v = self[(route[max], route[max + 1])] / (1 + self.penalty((route[max], route[max + 1])));
+        println!("{:?} {} {} {}", max, route[max], route[max + 1], v);*/
+
         route
     }
 }
