@@ -29,6 +29,10 @@ pub fn gls(steps: usize, expected: i32) {
     println!("{:?}", solution);
 }
 
+pub fn main() {
+    gls(10, 152979);
+}
+
 #[cfg(test)]
 mod main {
     use crate::gls;
