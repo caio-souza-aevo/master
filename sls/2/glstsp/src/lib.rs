@@ -20,37 +20,36 @@ pub fn load_problem() -> GuidedLocalSearch {
     GuidedLocalSearch::new(matrix)
 }
 
-pub fn main() {
+pub fn gls(steps: usize, expected: i32) {
     let tsp = load_problem();
-    let solution = tsp.solve(666, 50);
+    let solution = tsp.solve(666, steps);
 
     // Optimal solution
-    assert!(solution.cost >= 137694);
+    assert_eq!(solution.cost, expected);
     println!("{:?}", solution);
 }
 
 #[cfg(test)]
 mod main {
-    use crate::{load_matrix, load_problem, main};
+    use crate::gls;
 
     #[test]
-    fn write() {
-        let tsp = load_matrix();
-        println!("{:.25}", tsp);
+    fn gls0() {
+        gls(0, 152991);
     }
 
     #[test]
-    fn sequential() {
-        let tsp = load_problem();
-        let solution = tsp.sequential();
-
-        // Optimal solution
-        assert!(solution.cost >= 137694);
-        println!("{:?}", solution);
+    fn gls1() {
+        gls(1, 152979);
     }
 
     #[test]
-    fn gls() {
-        main();
+    fn gls10() {
+        gls(10, 152979);
+    }
+
+    #[test]
+    fn gls25() {
+        gls(25, 152777);
     }
 }

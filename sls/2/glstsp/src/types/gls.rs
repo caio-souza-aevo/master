@@ -22,7 +22,7 @@ impl GuidedLocalSearch {
     pub fn sequential(&self) -> Route {
         let path = Path::sequential(self.distances.size());
         let cost = self.cost(&path);
-        Route::new(path, cost)
+        Route::new(cost, path)
     }
 
     pub fn nearest_neighbor(&self) -> Route {
@@ -44,7 +44,7 @@ impl GuidedLocalSearch {
         }
 
         let cost = self.cost(&res);
-        let res = Route::new(res, cost);
+        let res = Route::new(cost, res);
 
         debug_assert!(res.path.is_hamiltonian());
 
@@ -65,7 +65,6 @@ impl GuidedLocalSearch {
 
         'outer: loop {
             for (i, j) in neighborhood.interpolate_edges(1) {
-
                 // Find vertexes to twist
                 let i_next = (i + 1) % candidate.len();
                 let i_vertex = candidate[i];
@@ -101,15 +100,14 @@ impl GuidedLocalSearch {
         // Neighborhood search
         let mut neighborhood: Vec<_> = (0..size).collect();
         neighborhood.shuffle(&mut rng);
-        let neighborhood = Path::new(neighborhood);
+        let neighborhood = &Path::new(neighborhood);
 
         // Candidate
         let mut route = self.nearest_neighbor();
 
         // First iteration
         let mut penalties = SymmetricMatrix::from_size(size);
-
-        self.local_search(&mut route.path, &neighborhood, 0, &mut penalties);
+        self.local_search(&mut route.path, neighborhood, 0, &mut penalties);
         route.cost = self.cost(&route.path);
 
         let penalty_factor = (0.3 * (route.cost as f64 / size as f64)) as i32;
@@ -132,11 +130,11 @@ impl GuidedLocalSearch {
                 }
             }
 
-            self.local_search(&mut route.path, &neighborhood, penalty_factor, &mut penalties);
+            self.local_search(&mut route.path, neighborhood, penalty_factor, &mut penalties);
         }
 
         // Run a last local search pass without penalties to reach the local minimum
-        self.local_search(&mut route.path, &neighborhood, 0, &mut penalties);
+        self.local_search(&mut route.path, neighborhood, 0, &mut penalties);
         route.cost = self.cost(&route.path);
         route
     }
@@ -164,10 +162,7 @@ mod tests {
             let gls = GuidedLocalSearch::new(matrix);
             let actual = gls.sequential();
 
-            let expected = Route::new(
-                Path::new(vec![0, 1, 2, 3]),
-                18,
-            );
+            let expected = Route::new(18, Path::new(vec![0, 1, 2, 3]));
 
             assert_eq!(actual, expected);
         }

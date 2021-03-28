@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Caio Souza <caiophilipevs@gmail.com>"]
 edition = "2018"
 
+[profile.test]
+opt-level = 3
+
 [profile.release]
 opt-level = 3
 

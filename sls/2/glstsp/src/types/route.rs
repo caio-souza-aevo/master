@@ -2,8 +2,8 @@ use crate::types::path::Path;
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct Route {
-    pub path: Path,
     pub cost: i32,
+    pub path: Path,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -14,7 +14,7 @@ pub enum HamiltonianResult {
 
 impl Route
 {
-    pub fn new(path: Path, cost: i32) -> Route {
-        Route { path, cost }
+    pub fn new(cost: i32, path: Path) -> Route {
+        Route { cost, path }
     }
 }
