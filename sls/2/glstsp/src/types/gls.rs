@@ -51,66 +51,48 @@ impl GuidedLocalSearch {
         res
     }
 
-    fn local_search_step(
+    pub fn local_search(
         &self,
-        candidate: &mut Route,
+        candidate: &mut Path,
         neighborhood: &Path,
         penalty_factor: i32,
-        penalties: &mut SymmetricMatrix,
-    ) -> i32 {
+        penalties: &mut SymmetricMatrix)
+    {
         let cost_change = |va: (usize, usize), vb: (usize, usize)| {
             self.distances[va] + self.distances[vb]
                 + penalty_factor * (penalties[va] + penalties[vb])
         };
 
-        let candidate_path = &candidate.path;
+        'outer: loop {
+            for (i, j) in neighborhood.interpolate_edges(1) {
 
-        for (i, j) in neighborhood.interpolate_edges(1) {
+                // Find vertexes to twist
+                let i_next = (i + 1) % candidate.len();
+                let i_vertex = candidate[i];
+                let i_vertex_next = candidate[i_next];
 
-            // Find vertexes to twist
-            let i_next = (i + 1) % candidate_path.len();
-            let i_vertex = candidate_path[i];
-            let i_vertex_next = candidate_path[i_next];
+                let j_next = (j + 1) % candidate.len();
+                let j_vertex = candidate[j];
+                let j_vertex_next = candidate[j_next];
 
-            let j_next = (j + 1) % candidate_path.len();
-            let j_vertex = candidate_path[j];
-            let j_vertex_next = candidate_path[j_next];
+                // Calculate the new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
+                let cost_decreased = cost_change((i_vertex, i_vertex_next), (j_vertex, j_vertex_next));
+                let cost_increased = cost_change((i_vertex, j_vertex), (i_vertex_next, j_vertex_next));
+                let cost_change = cost_increased - cost_decreased;
 
-            // Calculate the new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
-            let cost_decreased = cost_change((i_vertex, i_vertex_next), (j_vertex, j_vertex_next));
-            let cost_increased = cost_change((i_vertex, j_vertex), (i_vertex_next, j_vertex_next));
-            let cost_change = cost_increased - cost_decreased;
-
-            // If the cost is decreased, apply the twist and finish the step
-            if cost_change < 0 {
-                candidate.path.twist(i_next, j);
-                candidate.cost += cost_change;
-                return cost_change;
+                // If the cost is decreased, apply the twist and finish the step
+                if cost_change < 0 {
+                    candidate.twist(i_next, j);
+                    continue 'outer; // Improvement found, start again.
+                }
             }
-        }
 
-        0
-    }
-
-    pub fn local_search(
-        &self,
-        candidate: &mut Route,
-        neighborhood: &Path,
-        penalty_factor: i32,
-        penalties: &mut SymmetricMatrix)
-    {
-        // Recalculate the cost considering the penalties
-        candidate.cost =
-            self.cost(&candidate.path)
-                + penalty_factor * penalties.sum(candidate.path.edges());
-
-        loop {
-            let change = self.local_search_step(candidate, &neighborhood, penalty_factor, penalties);
-            if change == 0 { break; }
+            // If reached, there was no improvement
+            break;
         }
     }
 
-    pub fn solve(&self, seed: u64) -> Route {
+    pub fn solve(&self, seed: u64, steps: usize) -> Route {
         let size = self.distances.size();
 
         // RNG
@@ -121,11 +103,41 @@ impl GuidedLocalSearch {
         neighborhood.shuffle(&mut rng);
         let neighborhood = Path::new(neighborhood);
 
-        // Penalties
+        // Candidate
+        let mut route = self.nearest_neighbor();
+
+        // First iteration
         let mut penalties = SymmetricMatrix::from_size(size);
 
-        let mut route = self.nearest_neighbor();
-        self.local_search(&mut route, &neighborhood, 0, &mut penalties);
+        self.local_search(&mut route.path, &neighborhood, 0, &mut penalties);
+        route.cost = self.cost(&route.path);
+
+        let penalty_factor = (0.3 * (route.cost as f64 / size as f64)) as i32;
+
+        for _ in 0..steps {
+            let calc_utility = |penalties: &SymmetricMatrix, e: (usize, usize)| -> i32 {
+                (self.distances[e] as f64 / (1.0 + penalties[e] as f64)) as i32
+            };
+
+            // Find the maximum utility
+            let max_utility = route.path.edges()
+                .map(|e| calc_utility(&penalties, e))
+                .max()
+                .unwrap();
+
+            // Penalize features with maximum utility
+            for e in route.path.edges() {
+                if calc_utility(&penalties, e) == max_utility {
+                    penalties.inc(e.0, e.1, 1);
+                }
+            }
+
+            self.local_search(&mut route.path, &neighborhood, penalty_factor, &mut penalties);
+        }
+
+        // Run a last local search pass without penalties to reach the local minimum
+        self.local_search(&mut route.path, &neighborhood, 0, &mut penalties);
+        route.cost = self.cost(&route.path);
         route
     }
 }

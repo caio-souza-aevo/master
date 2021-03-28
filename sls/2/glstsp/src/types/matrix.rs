@@ -46,6 +46,11 @@ impl SymmetricMatrix {
         self.data[ib] = value;
     }
 
+    pub fn inc(&mut self, x: usize, y: usize, value: i32) {
+        let value = self[(x, y)] + value;
+        self.set(x, y, value);
+    }
+
     pub fn size(&self) -> usize {
         self.size
     }
