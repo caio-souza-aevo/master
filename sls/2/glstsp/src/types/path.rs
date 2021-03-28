@@ -1,4 +1,4 @@
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 use std::iter;
 
 #[derive(Eq, PartialEq, Debug)]
@@ -15,6 +15,18 @@ impl Path
     pub fn new(path: Vec<usize>) -> Self {
         debug_assert!(path.len() > 1);
         Self(path)
+    }
+
+    pub fn from_size(size: usize) -> Self {
+        Self::new(vec![0usize; size])
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 
     pub fn sequential(size: usize) -> Self {
@@ -71,13 +83,28 @@ impl Path
 
     /// Create an iterator of edges grouping each vertex with the next one.
     ///
-    /// `Route(vec![2, 0, 1, 3])` should return an iterator equivalent to
+    /// `Path::new(vec![2, 0, 1, 3]).edges()` should return an iterator equivalent to
     /// `[(2, 0), (0, 1), (1, 3), (3, 2)]`
     pub fn edges(&'_ self) -> impl Iterator<Item=(usize, usize)> + '_ {
         self.0.iter().copied()
             .zip(self.0.iter().copied()
                 .skip(1)
                 .chain(iter::once(self.0[0]))
+            )
+    }
+
+    /// Create an iterator of edges interpolating all vertices with the next ones skipping `skip` amount.
+    ///
+    /// `Path::new(vec![2, 0, 1, 3]).interpolate_edges(skip: 0)` should return an iterator equivalent to
+    /// `[(2, 0), (2, 1), (2, 3), (0, 1), (0, 3), (1, 3)]`
+    ///
+    /// `Path::new(vec![2, 0, 1, 3]).interpolate_edges(skip: 1)` should return an iterator equivalent to
+    /// `[(2, 1), (2, 3), (1, 3)]`
+    pub fn interpolate_edges(&'_ self, skip: usize) -> impl Iterator<Item=(usize, usize)> + '_ {
+        self.0.iter().copied().enumerate()
+            .flat_map(move |(i, v)| self.0.iter().copied()
+                .skip(i + 1 + skip)
+                .map(move |next_v| (v, next_v))
             )
     }
 }
@@ -88,6 +115,13 @@ impl Index<usize> for Path {
     fn index(&self, index: usize) -> &Self::Output {
         debug_assert!(index < self.0.len());
         unsafe { self.0.get_unchecked(index) }
+    }
+}
+
+impl IndexMut<usize> for Path {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        debug_assert!(index < self.0.len());
+        unsafe { self.0.get_unchecked_mut(index) }
     }
 }
 
@@ -271,6 +305,61 @@ mod tests {
 
             let actual = path.edges();
             let expected = vec![(2, 0), (0, 1), (1, 3), (3, 2)];
+
+            itertools::assert_equal(actual, expected);
+        }
+    }
+
+    #[cfg(test)]
+    mod interpolate_edges {
+        use crate::types::path::Path;
+
+        #[test]
+        fn edges_single() {
+            let path = Path(vec![0, 1]);
+
+            let actual = path.interpolate_edges(0);
+            let expected = vec![(0, 1)];
+
+            itertools::assert_equal(actual, expected);
+        }
+
+        #[test]
+        fn interpolate_no_skip() {
+            let path = Path(vec![2, 0, 1, 3]);
+
+            let actual = path.interpolate_edges(0);
+            let expected = vec![(2, 0), (2, 1), (2, 3), (0, 1), (0, 3), (1, 3)];
+
+            itertools::assert_equal(actual, expected);
+        }
+
+        #[test]
+        fn interpolate_skip_1() {
+            let path = Path(vec![2, 0, 1, 3]);
+
+            let actual = path.interpolate_edges(1);
+            let expected = vec![(2, 1), (2, 3), (0, 3)];
+
+            itertools::assert_equal(actual, expected);
+        }
+
+        #[test]
+        fn interpolate_skip_2() {
+            let path = Path(vec![2, 0, 1, 3]);
+
+            let actual = path.interpolate_edges(2);
+            let expected = vec![(2, 3)];
+
+            itertools::assert_equal(actual, expected);
+        }
+
+        #[test]
+        fn interpolate_skip_all() {
+            let path = Path(vec![2, 0, 1, 3]);
+
+            let actual = path.interpolate_edges(3);
+            let expected = vec![];
 
             itertools::assert_equal(actual, expected);
         }

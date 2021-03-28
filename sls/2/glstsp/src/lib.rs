@@ -36,7 +36,17 @@ mod main {
         let solution = tsp.sequential();
 
         // Optimal solution
-        assert!(solution.cost() >= 137694);
+        assert!(solution.cost >= 137694);
+        println!("{:?}", solution);
+    }
+
+    #[test]
+    fn gls() {
+        let tsp = load_problem();
+        let solution = tsp.solve(666);
+
+        // Optimal solution
+        assert!(solution.cost >= 137694);
         println!("{:?}", solution);
     }
 }
