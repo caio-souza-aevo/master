@@ -2,7 +2,7 @@ use std::ops::{Index, IndexMut};
 use std::iter;
 
 #[derive(Eq, PartialEq, Debug)]
-pub struct Path(Vec<usize>);
+pub struct Path(pub(crate) Vec<usize>);
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum HamiltonianResult {

@@ -64,29 +64,31 @@ impl GuidedLocalSearch {
         };
 
         'outer: loop {
-            for (i, j) in neighborhood.interpolate_edges(1) {
+            for (skip, i) in neighborhood.0.iter().copied().enumerate() {
                 // Find vertexes to twist
                 let i_next = (i + 1) % candidate.len();
                 let i_vertex = candidate[i];
                 let i_vertex_next = candidate[i_next];
 
-                let j_next = (j + 1) % candidate.len();
-                let j_vertex = candidate[j];
-                let j_vertex_next = candidate[j_next];
+                for j in neighborhood.0.iter().copied().skip(skip + 2) {
+                    let j_next = (j + 1) % candidate.len();
+                    let j_vertex = candidate[j];
+                    let j_vertex_next = candidate[j_next];
 
-                // Calculate the new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
-                let cost_decreased = cost_change((i_vertex, i_vertex_next), (j_vertex, j_vertex_next));
-                let cost_increased = cost_change((i_vertex, j_vertex), (i_vertex_next, j_vertex_next));
-                let cost_change = cost_increased - cost_decreased;
+                    // Calculate the new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
+                    let cost_decreased = cost_change((i_vertex, i_vertex_next), (j_vertex, j_vertex_next));
+                    let cost_increased = cost_change((i_vertex, j_vertex), (i_vertex_next, j_vertex_next));
+                    let cost_change = cost_increased - cost_decreased;
 
-                // If the cost is decreased, apply the twist and finish the step
-                if cost_change < 0 {
-                    candidate.twist(i_next, j);
-                    continue 'outer; // Improvement found, start again.
+                    // If the cost is decreased, apply the twist and finish the step
+                    if cost_change < 0 {
+                        candidate.twist(i_next, j);
+                        continue 'outer; // Improvement found, start again.
+                    }
                 }
             }
 
-            // If reached, there was no improvement
+            // If reached, there was no improvement.
             break;
         }
     }

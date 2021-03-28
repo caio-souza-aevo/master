@@ -7,7 +7,7 @@ fn gls_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("PCB3038");
     group.sample_size(10);
 
-    for step in [1, 5, 10].iter() {
+    for step in [1, 5, 10, 25].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(format!("gls(666, {})", step)), step, |b, &step| {
             b.iter(|| gls.solve(black_box(666), black_box(step)))
         });
