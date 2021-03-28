@@ -1,10 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion, black_box};
-use glstsp::types::gls::GuidedLocalSearch;
-use glstsp::load_data;
+use glstsp::load_problem;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let tsp = load_data();
-    let gls = GuidedLocalSearch::new(&tsp);
+    let gls = load_problem();
 
     c.bench_function("Local Search PCB3038", |b| b.iter(|| {
         gls.solve(black_box(666))
