@@ -30,7 +30,12 @@ pub fn gls(steps: usize, expected: i32) {
 }
 
 pub fn main() {
-    gls(10, 152979);
+    let tsp = load_problem();
+
+    for steps in [0, 1, 10, 25, 50, 75, 100, 250, 500, 750, 1000].iter().copied() {
+        let solution = tsp.solve(666, steps);
+        println!("{:?}", solution);
+    }
 }
 
 #[cfg(test)]

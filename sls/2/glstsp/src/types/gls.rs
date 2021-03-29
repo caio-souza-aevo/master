@@ -4,6 +4,7 @@ use crate::types::path::Path;
 use rand_mt::Mt64;
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
+use rayon::prelude::*;
 
 #[derive(Eq, PartialEq)]
 pub struct GuidedLocalSearch {
@@ -63,33 +64,40 @@ impl GuidedLocalSearch {
                 + penalty_factor * (penalties[va] + penalties[vb])
         };
 
-        'outer: loop {
-            for (skip, i) in neighborhood.0.iter().copied().enumerate() {
-                // Find vertexes to twist
-                let i_next = (i + 1) % candidate.len();
-                let i_vertex = candidate[i];
-                let i_vertex_next = candidate[i_next];
+        loop {
+            let twist = neighborhood.0
+                .par_iter()
+                .enumerate()
+                .map(|(skip, &i)| {
+                    // Find vertexes to twist
+                    let i_next = (i + 1) % candidate.len();
+                    let i_vertex = candidate[i];
+                    let i_vertex_next = candidate[i_next];
 
-                for j in neighborhood.0.iter().copied().skip(skip + 2) {
-                    let j_next = (j + 1) % candidate.len();
-                    let j_vertex = candidate[j];
-                    let j_vertex_next = candidate[j_next];
+                    for j in neighborhood.0.iter().copied().skip(skip + 2) {
+                        let j_next = (j + 1) % candidate.len();
+                        let j_vertex = candidate[j];
+                        let j_vertex_next = candidate[j_next];
 
-                    // Calculate the new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
-                    let cost_decreased = cost_change((i_vertex, i_vertex_next), (j_vertex, j_vertex_next));
-                    let cost_increased = cost_change((i_vertex, j_vertex), (i_vertex_next, j_vertex_next));
-                    let cost_change = cost_increased - cost_decreased;
+                        // Calculate the new cost: {i, i+1}, {j, j+1} -> {i, j}, {i+1, j+1}
+                        let cost_decreased = cost_change((i_vertex, i_vertex_next), (j_vertex, j_vertex_next));
+                        let cost_increased = cost_change((i_vertex, j_vertex), (i_vertex_next, j_vertex_next));
+                        let cost_change = cost_increased - cost_decreased;
 
-                    // If the cost is decreased, apply the twist and finish the step
-                    if cost_change < 0 {
-                        candidate.twist(i_next, j);
-                        continue 'outer; // Improvement found, start again.
+                        // If the cost is decreased, apply the twist and finish the step
+                        if cost_change < 0 {
+                            return Some((i_next, j));
+                        }
                     }
-                }
-            }
 
-            // If reached, there was no improvement.
-            break;
+                    None
+                })
+                .find_first(|&r| r != None);
+
+            match twist {
+                None | Some(None) => { return; } // No improvement found. Already in local minimum.
+                Some(Some((e0, e1))) => { candidate.twist(e0, e1) } // Apply the twist
+            }
         }
     }
 
@@ -121,16 +129,17 @@ impl GuidedLocalSearch {
 
             // Find the maximum utility
             let max_utility = route.path.edges()
+                .par_bridge()
                 .map(|e| calc_utility(&penalties, e))
                 .max()
                 .unwrap();
 
             // Penalize features with maximum utility
-            for e in route.path.edges() {
-                if calc_utility(&penalties, e) == max_utility {
-                    penalties.inc(e.0, e.1, 1);
-                }
-            }
+            route.path.edges()
+                .par_bridge()
+                .filter(|&e| calc_utility(&penalties, e) == max_utility)
+                .collect::<Vec<_>>()
+                .iter().for_each(|&(e0, e1)| penalties.inc(e0, e1, 1));
 
             self.local_search(&mut route.path, neighborhood, penalty_factor, &mut penalties);
         }
