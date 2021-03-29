@@ -129,17 +129,16 @@ impl GuidedLocalSearch {
 
             // Find the maximum utility
             let max_utility = route.path.edges()
-                .par_bridge()
                 .map(|e| calc_utility(&penalties, e))
                 .max()
                 .unwrap();
 
             // Penalize features with maximum utility
-            route.path.edges()
-                .par_bridge()
-                .filter(|&e| calc_utility(&penalties, e) == max_utility)
-                .collect::<Vec<_>>()
-                .iter().for_each(|&(e0, e1)| penalties.inc(e0, e1, 1));
+            for e in route.path.edges() {
+                if calc_utility(&penalties, e) == max_utility {
+                    penalties.inc(e.0, e.1, 1);
+                }
+            }
 
             self.local_search(&mut route.path, neighborhood, penalty_factor, &mut penalties);
         }
